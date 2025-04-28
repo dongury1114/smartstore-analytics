@@ -1,32 +1,21 @@
-import { NextResponse } from "next/server";
 import { exec } from "child_process";
 import axios from "axios";
-import { getServerSession } from "next-auth";
-import { StoreManager } from "@/lib/StoreManager";
 import { ProductData } from "@/types/sales";
-
-interface ParsedData {
-    price: number;
-    name: string;
-    stockQuantity: number;
-}
 
 const CONSTANTS = {
     TODAY_BASIS: 0,
     INITIAL_BASIS: 1,
     MAX_RETRIES: 3,
-    BATCH_SIZE: 5,
-    BATCH_DELAY: 2000,
 };
 
-class ParseError extends Error {
+export class ParseError extends Error {
     constructor(message: string) {
         super(message);
         this.name = "ParseError";
     }
 }
 
-class SalesDataCollector {
+export class SalesDataCollector {
     private productId: string;
     private productName: string;
     private stockQuantity: number;
@@ -94,7 +83,7 @@ class SalesDataCollector {
                     const json = JSON.parse(stdout.trim());
 
                     if (!json || typeof json !== "object") {
-                        throw new Error("Invalid JSON structure");
+                        throw new ParseError("Invalid JSON structure");
                     }
 
                     const count = this.parseSalesCount(json);
@@ -119,24 +108,26 @@ class SalesDataCollector {
     private parseSalesCount(data: { mainPhrase?: string }): number {
         try {
             if (!data.mainPhrase) {
-                console.warn(`[API] mainPhrase 없음: ${this.productName} (${this.productId})`);
-                return 0;
+                throw new ParseError(`mainPhrase 없음: ${this.productName} (${this.productId})`);
             }
 
             const match = data.mainPhrase.match(/([\d,]+)명/);
             if (!match) {
-                console.warn(`[API] 판매량 패턴 매칭 실패: ${this.productName} (${this.productId}), mainPhrase: ${data.mainPhrase}`);
-                return 0;
+                throw new ParseError(`판매량 패턴 매칭 실패: ${this.productName} (${this.productId}), mainPhrase: ${data.mainPhrase}`);
             }
 
             return parseInt(match[1].replace(/,/g, ""));
         } catch (error) {
-            console.error(`[API] 판매량 파싱 실패: ${this.productName} (${this.productId})`, error);
+            if (error instanceof ParseError) {
+                console.warn(`[API] ${error.message}`);
+            } else {
+                console.error(`[API] 판매량 파싱 실패: ${this.productName} (${this.productId})`, error);
+            }
             return 0;
         }
     }
 
-    async collectSalesData() {
+    async collectSalesData(): Promise<ProductData> {
         try {
             console.log(`[API] 상품 처리 시작: ${this.productName} (${this.productId})`);
 
@@ -235,138 +226,5 @@ class SalesDataCollector {
                 price: 0,
             };
         }
-    }
-
-    private async fetchProductData(productId: string): Promise<ProductData> {
-        const productInfo = await this.fetchProductInfo(productId);
-        const collector = new SalesDataCollector(productId, productInfo.name, productInfo.stockQuantity);
-        const salesData = await collector.collectSalesData();
-
-        return {
-            productId: productId,
-            name: productInfo.name,
-            price: productInfo.price,
-            stockQuantity: productInfo.stockQuantity,
-            sales: {
-                today: salesData.sales.today,
-                week: salesData.sales.week,
-                halfYear: salesData.sales.halfYear,
-            },
-        };
-    }
-
-    private async processProduct(productId: string): Promise<ProductData> {
-        try {
-            const data = await this.fetchProductData(productId);
-            return data;
-        } catch (error: unknown) {
-            throw this.handleError(error);
-        }
-    }
-
-    private async parseProductData(rawData: string): Promise<ParsedData> {
-        try {
-            const data = JSON.parse(rawData);
-            return {
-                price: Number(data.price),
-                name: data.name,
-                stockQuantity: Number(data.stockQuantity),
-            };
-        } catch (error) {
-            throw new Error(`데이터 파싱 실패: ${error instanceof Error ? error.message : "알 수 없는 오류"}`);
-        }
-    }
-
-    public async collectData(): Promise<ProductData> {
-        try {
-            await this.processProduct(this.productId);
-
-            return {
-                productId: this.productId,
-                name: this.productName,
-                stockQuantity: this.stockQuantity,
-                price: this.sales.price,
-                sales: {
-                    today: this.sales.today,
-                    week: this.sales.week,
-                    halfYear: this.sales.halfYear,
-                },
-            };
-        } catch (error) {
-            throw this.handleError(error);
-        }
-    }
-
-    private parseError(error: unknown): Error {
-        if (error instanceof Error) {
-            return error;
-        }
-        return new Error("알 수 없는 에러가 발생했습니다.");
-    }
-
-    private async handleError(error: unknown): Promise<Error> {
-        if (error instanceof Error) {
-            console.error("데이터 수집 중 오류 발생:", error.message);
-            if (error instanceof ParseError) {
-                console.error("파싱 오류:", error.message);
-            } else {
-                console.error("일반 오류:", error.message);
-            }
-            return error;
-        }
-        return new Error("상품 데이터 처리 중 에러가 발생했습니다.");
-    }
-
-    private async handleApiError(error: unknown): Promise<never> {
-        const parsedError = this.parseError(error);
-        throw new Error(`API 요청 실패: ${parsedError.message}`);
-    }
-}
-
-export async function POST(req: Request) {
-    try {
-        const session = await getServerSession();
-
-        if (!session) {
-            return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
-        }
-
-        const { storeUrl, storeName } = await req.json();
-
-        if (!storeUrl) {
-            return NextResponse.json({ error: "스토어 URL이 필요합니다." }, { status: 400 });
-        }
-
-        const storeManager = new StoreManager(storeUrl, storeName);
-        const storeData = await storeManager.getStoreData();
-
-        return NextResponse.json(storeData);
-    } catch (error: unknown) {
-        if (error instanceof Error) {
-            console.error("Error processing request:", error.message);
-            return NextResponse.json({ error: error.message }, { status: 500 });
-        }
-        console.error("Unknown error:", error);
-        return NextResponse.json({ error: "An unknown error occurred" }, { status: 500 });
-    }
-}
-
-export async function GET(request: Request): Promise<Response> {
-    try {
-        const { searchParams } = new URL(request.url);
-        const productId = searchParams.get("productId");
-        const productName = searchParams.get("productName");
-        const stockQuantity = Number(searchParams.get("stockQuantity"));
-
-        if (!productId || !productName || isNaN(stockQuantity)) {
-            return Response.json({ error: "잘못된 요청 파라미터" }, { status: 400 });
-        }
-
-        const collector = new SalesDataCollector(productId, productName, stockQuantity);
-        const result = await collector.collectData();
-        return Response.json(result);
-    } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다.";
-        return Response.json({ error: errorMessage }, { status: 500 });
     }
 }

@@ -4,7 +4,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { formatNumber } from "@/utils/format";
-import { StoreData } from "@/types/sales";
+import { StoreDataType } from "@/types/sales";
 import { STORE_LIST } from "@/config/stores";
 import StoreSelector from "@/components/StoreSelector";
 import { extractStoreUrl } from "@/utils/url";
@@ -14,7 +14,7 @@ export default function Home() {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [storeData, setStoreData] = useState<StoreData[]>([]);
+    const [storeData, setStoreData] = useState<StoreDataType[]>([]);
     const [selectedStores, setSelectedStores] = useState<Set<string>>(new Set());
     const [storeUrl, setStoreUrl] = useState("");
 

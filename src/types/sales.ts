@@ -3,11 +3,11 @@ export interface Store {
     name: string;
 }
 
-export interface Product {
+export interface ProductData {
     productId: string;
     name: string;
-    stockQuantity: number;
     price: number;
+    stockQuantity: number;
     sales: {
         today: number;
         week: number;
@@ -15,12 +15,12 @@ export interface Product {
     };
 }
 
-export interface StoreData {
+export interface StoreDataType {
     storeName: string;
-    todaySales: number;
-    weekSales: number;
-    halfYearSales: number;
-    products: Product[];
+    todaySales?: number;
+    weekSales?: number;
+    halfYearSales?: number;
+    products: ProductData[];
 }
 
 export interface StoreSummary {
@@ -35,5 +35,5 @@ export interface StoreSummary {
         week: string;
         halfYear: string;
     };
-    products: Product[];
+    products: ProductData[];
 }
