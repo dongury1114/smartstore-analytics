@@ -3,6 +3,7 @@ import { exec } from "child_process";
 import { chromium } from "playwright";
 import { StoreData, Product } from "@/types/sales";
 import axios from "axios";
+import { getServerSession } from "next-auth";
 
 const CONSTANTS = {
     TODAY_BASIS: 0,
@@ -367,20 +368,59 @@ class StoreManager {
     }
 }
 
-export async function POST(request: Request) {
+export async function POST(req: Request) {
     try {
-        const { storeUrl, storeName } = await request.json();
+        const session = await getServerSession();
 
-        if (!storeUrl || !storeName) {
-            return NextResponse.json({ error: "스토어 URL과 이름이 필요합니다." }, { status: 400 });
+        if (!session) {
+            return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
         }
 
-        const manager = new StoreManager(storeUrl, storeName);
-        const storeData = await manager.getStoreData();
+        const { storeUrl, storeName } = await req.json();
 
-        return NextResponse.json(storeData);
+        if (!storeUrl) {
+            return NextResponse.json({ error: "스토어 URL이 필요합니다." }, { status: 400 });
+        }
+
+        // 네이버 쿠키 설정
+        const cookies = {
+            NID_AUT: process.env.NAVER_NID_AUT,
+            NID_SES: process.env.NAVER_NID_SES,
+        };
+
+        // 네이버 스토어 데이터 가져오기
+        const response = await fetch(storeUrl, {
+            headers: {
+                Cookie: Object.entries(cookies)
+                    .map(([key, value]) => `${key}=${value}`)
+                    .join("; "),
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error("스토어 데이터를 가져오는데 실패했습니다.");
+        }
+
+        const data = await response.json();
+
+        return NextResponse.json({
+            storeName,
+            products: data.products.map(
+                (product: { id: string; name: string; price: number; stockQuantity: number; sales: { today: number; week: number; halfYear: number } }) => ({
+                    productId: product.id,
+                    name: product.name,
+                    price: product.price,
+                    stockQuantity: product.stockQuantity,
+                    sales: {
+                        today: product.sales.today,
+                        week: product.sales.week,
+                        halfYear: product.sales.halfYear,
+                    },
+                })
+            ),
+        });
     } catch (error) {
-        console.error("Error processing request:", error);
+        console.error("Error in sales route:", error);
         return NextResponse.json({ error: "데이터를 가져오는 중 오류가 발생했습니다." }, { status: 500 });
     }
 }
