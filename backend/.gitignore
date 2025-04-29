@@ -7,8 +7,6 @@ yarn-error.log*
 # Build
 dist/
 build/
-.next/
-out/
 
 # Environment
 .env
@@ -34,11 +32,4 @@ coverage/
 
 # Temporary files
 *.tmp
-*.temp
-
-# Project specific
-frontend/.next/
-frontend/out/
-frontend/node_modules/
-backend/dist/
-backend/node_modules/ 
+*.temp 
