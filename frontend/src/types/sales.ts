@@ -3,33 +3,35 @@ export interface Store {
     name: string;
 }
 
+export interface Sales {
+    today: number;
+    week: number;
+    halfYear: number;
+}
+
 export interface ProductData {
     productId: string;
     name: string;
-    price: number;
     stockQuantity: number;
-    sales: {
-        today: number;
-        week: number;
-        halfYear: number;
-    };
+    price: number;
+    sales: Sales;
 }
 
-export interface StoreDataType {
+export interface StoreData {
     storeName: string;
-    todaySales?: number;
-    weekSales?: number;
-    halfYearSales?: number;
+    storeUrl: string;
+    todaySales: number;
+    weekSales: number;
+    halfYearSales: number;
     products: ProductData[];
 }
 
+// API 응답 타입을 StoreData와 통일
+export type StoreDataType = StoreData;
+
 export interface StoreSummary {
     totalProducts: number;
-    totalSales: {
-        today: number;
-        week: number;
-        halfYear: number;
-    };
+    totalSales: Sales;
     totalRevenue: {
         today: string;
         week: string;
