@@ -1,16 +1,18 @@
-export function extractStoreUrl(fullUrl: string): string | null {
+import { logger } from "./logger";
+
+export function extractStoreUrl(url: string): string | null {
     try {
-        const url = new URL(fullUrl);
-        const pathParts = url.pathname.split("/");
-        if (pathParts.length >= 2) {
-            // 스토어 ID 추출
-            const storeId = pathParts[1];
-            // 스토어 URL 생성 (끝에 슬래시 포함)
-            return `https://smartstore.naver.com/${storeId}/`;
+        const urlObj = new URL(url);
+        const hostname = urlObj.hostname;
+        const pathname = urlObj.pathname;
+
+        if (hostname === "smartstore.naver.com") {
+            return `https://smartstore.naver.com${pathname}`;
         }
         return null;
     } catch (error) {
-        console.error("URL 파싱 에러:", error);
+        const errorMessage = error instanceof Error ? error.message : "알 수 없는 오류";
+        logger.error("URL 파싱 에러:", { error: errorMessage, url });
         return null;
     }
 }
