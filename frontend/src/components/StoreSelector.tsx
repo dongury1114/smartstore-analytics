@@ -1,14 +1,14 @@
-import { Store } from "@/types/sales";
+import { Store } from "@/types/store";
 
 interface StoreSelectorProps {
     stores: Store[];
     selectedStores: Set<string>;
-    onStoreToggle: (storeName: string) => void;
+    onStoreToggle: (storeId: string) => void;
     onSelectAll: (selected: boolean) => void;
 }
 
 export default function StoreSelector({ stores, selectedStores, onStoreToggle, onSelectAll }: StoreSelectorProps) {
-    const allSelected = stores.length > 0 && stores.every((store) => selectedStores.has(store.name));
+    const allSelected = stores.length > 0 && stores.every((store) => selectedStores.has(store.id));
 
     const handleSelectAll = () => {
         onSelectAll(!allSelected);
@@ -24,15 +24,15 @@ export default function StoreSelector({ stores, selectedStores, onStoreToggle, o
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {stores.map((store) => (
-                    <div key={store.url} className="flex items-center space-x-3">
+                    <div key={store.id} className="flex items-center space-x-3">
                         <input
                             type="checkbox"
-                            id={store.url}
-                            checked={selectedStores.has(store.name)}
-                            onChange={() => onStoreToggle(store.name)}
+                            id={store.id}
+                            checked={selectedStores.has(store.id)}
+                            onChange={() => onStoreToggle(store.id)}
                             className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                         />
-                        <label htmlFor={store.url} className="text-sm font-medium text-gray-700">
+                        <label htmlFor={store.id} className="text-sm font-medium text-gray-700">
                             {store.name}
                         </label>
                     </div>

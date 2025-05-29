@@ -1,0 +1,29 @@
+{
+    "stores": [
+        {
+            "id": "honey_mk",
+            "name": "꿀달달",
+            "url": "https://smartstore.naver.com/honey_mk/"
+        },
+        {
+            "id": "minimalstudio",
+            "name": "미니멀스튜디오",
+            "url": "https://smartstore.naver.com/minimalstudio"
+        },
+        {
+            "id": "qweasdcziuoiasjlksdwe",
+            "name": "꿀밤선배",
+            "url": "https://smartstore.naver.com/qweasdcziuoiasjlksdwe"
+        },
+        {
+            "id": "codewiner",
+            "name": "코드위너",
+            "url": "https://smartstore.naver.com/codewiner"
+        },
+        {
+            "id": "rurustorage",
+            "name": "루루스토리지",
+            "url": "https://smartstore.naver.com/rurustorage"
+        }
+    ]
+}

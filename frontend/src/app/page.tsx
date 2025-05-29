@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { formatNumber } from "@/utils/format";
 import { StoreDataType } from "@/types/sales";
-import { STORE_LIST } from "@/config/stores";
+import { Store } from "@/types/store";
 import StoreSelector from "@/components/StoreSelector";
 import { extractStoreUrl } from "@/utils/url";
+import { storeService } from "@/services/storeService";
 
 export default function Home() {
     const [loading, setLoading] = useState(false);
@@ -13,21 +14,36 @@ export default function Home() {
     const [storeData, setStoreData] = useState<StoreDataType[]>([]);
     const [selectedStores, setSelectedStores] = useState<Set<string>>(new Set());
     const [storeUrl, setStoreUrl] = useState("");
+    const [stores, setStores] = useState<Store[]>([]);
 
-    const handleStoreToggle = (storeName: string) => {
+    useEffect(() => {
+        loadStores();
+    }, []);
+
+    const loadStores = async () => {
+        try {
+            const storeList = await storeService.getStores();
+            setStores(storeList);
+        } catch (error) {
+            console.error("Failed to load stores:", error);
+            setError("스토어 목록을 불러오는데 실패했습니다.");
+        }
+    };
+
+    const handleStoreToggle = (storeId: string) => {
         const newSelectedStores = new Set(selectedStores);
-        if (newSelectedStores.has(storeName)) {
-            newSelectedStores.delete(storeName);
+        if (newSelectedStores.has(storeId)) {
+            newSelectedStores.delete(storeId);
         } else {
-            newSelectedStores.add(storeName);
+            newSelectedStores.add(storeId);
         }
         setSelectedStores(newSelectedStores);
     };
 
     const handleSelectAll = (selected: boolean) => {
         if (selected) {
-            const allStoreNames = new Set(STORE_LIST.map((store) => store.name));
-            setSelectedStores(allStoreNames);
+            const allStoreIds = new Set(stores.map((store) => store.id));
+            setSelectedStores(allStoreIds);
         } else {
             setSelectedStores(new Set());
         }
@@ -41,24 +57,16 @@ export default function Home() {
         }
 
         const normalizedExtractedUrl = extractedUrl.replace(/\/+$/, "");
-        const store = STORE_LIST.find((s) => {
+        const store = stores.find((s) => {
             const normalizedStoreUrl = s.url.replace(/\/+$/, "");
             return normalizedStoreUrl === normalizedExtractedUrl;
         });
 
         if (store) {
-            handleStoreToggle(store.name);
+            handleStoreToggle(store.id);
             setStoreUrl("");
         } else {
-            const storeName = normalizedExtractedUrl.split("/").filter(Boolean).pop() || "새 스토어";
-            const newStore = {
-                url: normalizedExtractedUrl,
-                name: storeName,
-            };
-
-            STORE_LIST.push(newStore);
-            handleStoreToggle(storeName);
-            setStoreUrl("");
+            setError("등록되지 않은 스토어입니다. 관리자에게 문의해주세요.");
         }
     };
 
@@ -66,7 +74,7 @@ export default function Home() {
         setLoading(true);
         setError(null);
         try {
-            const selectedStoreUrls = STORE_LIST.filter((store) => selectedStores.has(store.name)).map((store) => store.url);
+            const selectedStoreUrls = stores.filter((store) => selectedStores.has(store.id)).map((store) => store.url);
 
             if (selectedStoreUrls.length === 0) {
                 setError("최소 하나의 스토어를 선택해주세요.");
@@ -82,14 +90,13 @@ export default function Home() {
                         },
                         body: JSON.stringify({
                             storeUrl: url,
-                            storeName: STORE_LIST.find((s) => s.url === url)?.name,
+                            storeName: stores.find((s) => s.url === url)?.name,
                         }),
                     })
                 )
             );
 
             const data = await Promise.all(responses.map((response) => response.json()));
-
             setStoreData(data);
         } catch (err) {
             setError("데이터를 가져오는 중 오류가 발생했습니다.");
@@ -125,7 +132,7 @@ export default function Home() {
                             </button>
                         </div>
                     </div>
-                    <StoreSelector stores={STORE_LIST} selectedStores={selectedStores} onStoreToggle={handleStoreToggle} onSelectAll={handleSelectAll} />
+                    <StoreSelector stores={stores} selectedStores={selectedStores} onStoreToggle={handleStoreToggle} onSelectAll={handleSelectAll} />
                     <div className="mt-6">
                         <button
                             onClick={handleSubmit}
