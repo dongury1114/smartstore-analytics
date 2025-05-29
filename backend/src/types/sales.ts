@@ -1,17 +1,19 @@
-export interface SalesData {
+export interface Sales {
+    today: number;
+    week: number;
+    halfYear: number;
+}
+
+export interface ProductData {
     productId: string;
     name: string;
-    stockQuantity: number;
     price: number;
-    sales: {
-        today: number;
-        week: number;
-        halfYear: number;
-    };
+    stockQuantity: number;
+    sales: Sales;
 }
 
 export interface StoreData {
     storeUrl: string;
     storeName: string;
-    products: SalesData[];
+    products: ProductData[];
 }
