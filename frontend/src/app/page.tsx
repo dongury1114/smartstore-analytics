@@ -2,16 +2,18 @@
 
 import { useState, useEffect } from "react";
 import { formatNumber } from "@/utils/format";
-import { StoreDataType } from "@/types/sales";
+import { StoreData } from "@/types/sales";
 import { Store } from "@/types/store";
 import StoreSelector from "@/components/StoreSelector";
 import { extractStoreUrl } from "@/utils/url";
 import { storeService } from "@/services/storeService";
+import { salesService } from "@/services/salesService";
+import { logger } from "@/utils/logger";
 
 export default function Home() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [storeData, setStoreData] = useState<StoreDataType[]>([]);
+    const [storeData, setStoreData] = useState<StoreData[]>([]);
     const [selectedStores, setSelectedStores] = useState<Set<string>>(new Set());
     const [storeUrl, setStoreUrl] = useState("");
     const [stores, setStores] = useState<Store[]>([]);
@@ -25,7 +27,8 @@ export default function Home() {
             const storeList = await storeService.getStores();
             setStores(storeList);
         } catch (error) {
-            console.error("Failed to load stores:", error);
+            const errorMessage = error instanceof Error ? error.message : "알 수 없는 오류";
+            logger.error("Failed to load stores:", { error: errorMessage });
             setError("스토어 목록을 불러오는데 실패했습니다.");
         }
     };
@@ -74,33 +77,44 @@ export default function Home() {
         setLoading(true);
         setError(null);
         try {
-            const selectedStoreUrls = stores.filter((store) => selectedStores.has(store.id)).map((store) => store.url);
+            const selectedStoreList = stores.filter((store) => selectedStores.has(store.id));
 
-            if (selectedStoreUrls.length === 0) {
+            if (selectedStoreList.length === 0) {
                 setError("최소 하나의 스토어를 선택해주세요.");
                 return;
             }
 
-            const responses = await Promise.all(
-                selectedStoreUrls.map((url) =>
-                    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/sales`, {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                        },
-                        body: JSON.stringify({
-                            storeUrl: url,
-                            storeName: stores.find((s) => s.url === url)?.name,
-                        }),
-                    })
-                )
+            const storeResults = await Promise.allSettled(
+                selectedStoreList.map(async (store) => {
+                    try {
+                        return await salesService.fetchStoreData(store.url, store.name);
+                    } catch (error) {
+                        logger.error(`${store.name} 데이터 조회 실패:`, {
+                            error: error instanceof Error ? error.message : "알 수 없는 오류",
+                            storeUrl: store.url,
+                        });
+                        throw error;
+                    }
+                })
             );
 
-            const data = await Promise.all(responses.map((response) => response.json()));
-            setStoreData(data);
+            const successfulResults = storeResults.filter((result): result is PromiseFulfilledResult<StoreData> => result.status === "fulfilled").map((result) => result.value);
+
+            const failedStores = storeResults
+                .filter((result): result is PromiseRejectedResult => result.status === "rejected")
+                .map((result, index) => selectedStoreList[index].name);
+
+            if (failedStores.length > 0) {
+                setError(`일부 스토어 데이터 조회 실패: ${failedStores.join(", ")}`);
+            }
+
+            if (successfulResults.length > 0) {
+                setStoreData(successfulResults);
+            }
         } catch (err) {
-            setError("데이터를 가져오는 중 오류가 발생했습니다.");
-            console.error("Error:", err);
+            const errorMessage = err instanceof Error ? err.message : "데이터를 가져오는 중 오류가 발생했습니다.";
+            setError(errorMessage);
+            logger.error("Error:", { error: errorMessage });
         } finally {
             setLoading(false);
         }
